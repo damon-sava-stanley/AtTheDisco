@@ -1,0 +1,52 @@
+name:                AtTheDisco
+version:             0.1.0.0
+github:              "damon-sava-stanley/AtTheDisco"
+license:             BSD3
+author:              "Damon Stanley"
+maintainer:          "damonsava@gmail.com"
+copyright:           "Damon Stanley (C) 2022"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/damon-sava-stanley/AtTheDisco#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- Color >= 0.3 && < 0.4
+- hgeometry >= 0.12
+- fixed-vector >= 1.2
+- JuicyPixels >= 3.3
+
+library:
+  source-dirs: src
+
+executables:
+  AtTheDisco-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AtTheDisco
+
+tests:
+  AtTheDisco-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - AtTheDisco
