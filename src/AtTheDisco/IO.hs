@@ -10,7 +10,7 @@ import AtTheDisco.Sample(subsample)
 import qualified Codec.Picture as JP
 import Graphics.Color.Model (Color, Alpha, RGB, Elevator(..), toComponents, fromComponents)
 import Data.Word (Word16, Word8)
-import Data.Vector.Fixed (Vector, Dim)
+import Data.Geometry (Point)
 import System.IO (FilePath)
 
 -- TODO: Some TypeClass stuff to get more types on board and have a nicer
@@ -34,8 +34,8 @@ colorToJPRGB16 c = JP.PixelRGB16 r g b
 jpRGB16ToColor :: JP.PixelRGB16 -> Color RGB Word16
 jpRGB16ToColor (JP.PixelRGB16 r g b) = fromComponents (r, g, b)
 
-layerToJPImage :: (JP.Pixel px, Num a, Vector v a, Vector v Int, Dim v ~ 2) 
-               => Layer v a px 
+layerToJPImage :: (JP.Pixel px, Num a) 
+               => Layer (Point 2) a px 
                -> Int -- ^ Width
                -> Int -- ^ Height 
                -> JP.Image px
@@ -43,16 +43,16 @@ layerToJPImage layer w h = JP.generateImage f w h
     where
         f = unwrapVector . subsample $ layer
 
-saveRGBA16LayerPNG :: (Elevator e, Num a, Vector v a, Vector v Int, Dim v ~ 2)
-                   => Layer v a (Color (Alpha RGB) e)
+saveRGBA16LayerPNG :: (Elevator e, Num a)
+                   => Layer (Point 2) a (Color (Alpha RGB) e)
                    -> Int
                    -> Int
                    -> FilePath
                    -> IO ()
 saveRGBA16LayerPNG l w h fp = JP.writePng fp $ layerToJPImage (colorToJPRGBA16 . fmap toWord16 . l) w h
 
-saveRGB16LayerPNG :: (Elevator e, Num a, Vector v a, Vector v Int, Dim v ~ 2)
-                  => Layer v a (Color RGB e)
+saveRGB16LayerPNG :: (Elevator e, Num a)
+                  => Layer (Point 2) a (Color RGB e)
                   -> Int
                   -> Int
                   -> FilePath

@@ -23,7 +23,6 @@ dependencies:
 - base >= 4.7 && < 5
 - Color >= 0.3 && < 0.4
 - hgeometry >= 0.12
-- fixed-vector >= 1.2
 - JuicyPixels >= 3.3
 
 library:
