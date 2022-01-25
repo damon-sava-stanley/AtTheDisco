@@ -23,7 +23,9 @@ dependencies:
 - base >= 4.7 && < 5
 - Color >= 0.3 && < 0.4
 - hgeometry >= 0.12
+- hgeometry-combinatorial >= 0.12
 - JuicyPixels >= 3.3
+- HUnit >= 1.6
 
 library:
   source-dirs: src

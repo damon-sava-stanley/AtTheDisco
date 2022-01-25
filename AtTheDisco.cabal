@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4f71677ca969bc2cd47aaacde53412f925460109532fd39f4603ed659621b8ea
+-- hash: 92a1b8612f14504350a48aea4bf497ef3ace66bb17d5f6189e582af0ecfc5ef0
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -37,9 +37,11 @@ library
       src
   build-depends:
       Color >=0.3 && <0.4
+    , HUnit >=1.6
     , JuicyPixels >=3.3
     , base >=4.7 && <5
     , hgeometry >=0.12
+    , hgeometry-combinatorial >=0.12
   default-language: Haskell2010
 
 executable AtTheDisco-exe
@@ -52,15 +54,18 @@ executable AtTheDisco-exe
   build-depends:
       AtTheDisco
     , Color >=0.3 && <0.4
+    , HUnit >=1.6
     , JuicyPixels >=3.3
     , base >=4.7 && <5
     , hgeometry >=0.12
+    , hgeometry-combinatorial >=0.12
   default-language: Haskell2010
 
 test-suite AtTheDisco-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Test.AtTheDisco.Geometry.Shapes
       Paths_AtTheDisco
   hs-source-dirs:
       test
@@ -68,7 +73,9 @@ test-suite AtTheDisco-test
   build-depends:
       AtTheDisco
     , Color >=0.3 && <0.4
+    , HUnit >=1.6
     , JuicyPixels >=3.3
     , base >=4.7 && <5
     , hgeometry >=0.12
+    , hgeometry-combinatorial >=0.12
   default-language: Haskell2010
