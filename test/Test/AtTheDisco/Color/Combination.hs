@@ -6,7 +6,7 @@ import           AtTheDisco.Color.Combination (AlphaOver (atop),
                                                Premultiplied (Premultiplied),
                                                blendColors, multiplyColors,
                                                premultiply, screenColors)
-import           Data.Functor.Identity        (Identity (Identity))
+import           Data.Functor.Identity        (Identity (Identity, runIdentity))
 import           Graphics.Color.Model         (Color, RGB, addAlpha)
 import           Graphics.Color.Space         (Linearity (NonLinear),
                                                RedGreenBlue (unColorRGB), SRGB,
@@ -33,14 +33,14 @@ combinationTests =
 
 -- TODO: could easily be a property based test
 -- Properties:
--- + blendColors x (`elem` [0..1]) black white == Identity x
+-- + blendColors x (`elem` [0..1]) black white == Identity (1 - x)
 -- + blendColors 0 a b == b
 -- + blendColors 1 a b == a
 blend0and1Midway :: Test
 blend0and1Midway =
   let black = Identity 0
       white = Identity 1
-   in "50 % blend" ~: blendColors 0.5 black white ~=? Identity 0.5
+   in "70 % blend" ~: runIdentity (blendColors 0.7 black white) ~=? (1 - 0.7)
 
 blend0LeavesRight =
   let a = Identity 0.3
