@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 92a1b8612f14504350a48aea4bf497ef3ace66bb17d5f6189e582af0ecfc5ef0
+-- hash: 8f6b937f798a8acee536986ea3739a49302626457616b460eff637d0369b56eb
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      AtTheDisco.Color.Combination
       AtTheDisco.Geometry.Shapes
       AtTheDisco.IO
       AtTheDisco.Layer
@@ -65,6 +66,7 @@ test-suite AtTheDisco-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Test.AtTheDisco.Color.Combination
       Test.AtTheDisco.Geometry.Shapes
       Paths_AtTheDisco
   hs-source-dirs:

@@ -13,6 +13,7 @@ import qualified Data.Geometry.Box as Box
 import AtTheDisco.Layer(Layer, mask)
 import AtTheDisco.Geometry.Shapes
 import AtTheDisco.IO (saveRGBA16LayerPNG, saveRGB16LayerPNG)
+import AtTheDisco.Color.Combination (blendLayers)
 
 
 white = unColorRGB (color (SVG :: SVG "white") :: Color (SRGB 'NonLinear) Float) :: Color RGB Float
@@ -27,8 +28,11 @@ saveWhiteImage = saveRGB16LayerPNG (const white)
 
 saveBox = saveRGB16LayerPNG (mask (boxLayer smallBox) (const white) (const black))
 
+saveLightGray = saveRGB16LayerPNG (blendLayers 0.7 (const white) (const black))
+
 main :: IO ()
 main = do
     saveWhiteImage 100 100 "samples/white.png"
+    saveLightGray 100 100 "samples/blended-grey.png"
     saveBox 100 100 "samples/box.png"
     return ()

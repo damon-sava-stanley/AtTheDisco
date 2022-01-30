@@ -1,5 +1,7 @@
 module Test.AtTheDisco.Geometry.Shapes where
 
+import           Test.HUnit                        (Test, (~?))
+
 import           AtTheDisco.Geometry.Shapes        (ballLayer, boxLayer,
                                                     polygonLayer)
 import           Data.Ext                          ((:+) ((:+)))
@@ -9,7 +11,7 @@ import           Data.Geometry.Box                 (Box)
 import qualified Data.Geometry.Box                 as Box
 import           Data.Geometry.Polygon             (fromPoints)
 import           Data.Geometry.Vector.VectorFamily
-import           Test.HUnit                        (Test, (~?))
+
 
 shapeTests :: [Test]
 shapeTests =
