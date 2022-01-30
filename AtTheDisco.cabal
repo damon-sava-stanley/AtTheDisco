@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8f6b937f798a8acee536986ea3739a49302626457616b460eff637d0369b56eb
+-- hash: 8d08bf07c0c52be06e7f187055c9240b87202a28b48a73004043f797702e6ec5
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -28,6 +28,8 @@ source-repository head
 library
   exposed-modules:
       AtTheDisco.Color.Combination
+      AtTheDisco.Color.Gradient
+      AtTheDisco.Geometry.Gradient
       AtTheDisco.Geometry.Shapes
       AtTheDisco.IO
       AtTheDisco.Layer
@@ -43,6 +45,7 @@ library
     , base >=4.7 && <5
     , hgeometry >=0.12
     , hgeometry-combinatorial >=0.12
+    , lens >=4.0
   default-language: Haskell2010
 
 executable AtTheDisco-exe
@@ -60,6 +63,7 @@ executable AtTheDisco-exe
     , base >=4.7 && <5
     , hgeometry >=0.12
     , hgeometry-combinatorial >=0.12
+    , lens >=4.0
   default-language: Haskell2010
 
 test-suite AtTheDisco-test
@@ -67,6 +71,8 @@ test-suite AtTheDisco-test
   main-is: Spec.hs
   other-modules:
       Test.AtTheDisco.Color.Combination
+      Test.AtTheDisco.Color.Gradient
+      Test.AtTheDisco.Geometry.Gradient
       Test.AtTheDisco.Geometry.Shapes
       Paths_AtTheDisco
   hs-source-dirs:
@@ -80,4 +86,5 @@ test-suite AtTheDisco-test
     , base >=4.7 && <5
     , hgeometry >=0.12
     , hgeometry-combinatorial >=0.12
+    , lens >=4.0
   default-language: Haskell2010

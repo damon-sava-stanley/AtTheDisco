@@ -24,6 +24,7 @@ dependencies:
 - Color >= 0.3 && < 0.4
 - hgeometry >= 0.12
 - hgeometry-combinatorial >= 0.12
+- lens >= 4.0
 - JuicyPixels >= 3.3
 - HUnit >= 1.6
 

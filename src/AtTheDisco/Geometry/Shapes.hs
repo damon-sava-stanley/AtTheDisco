@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE MonoLocalBinds #-}
 
+-- | Functions for turning shapes into layers.
 module AtTheDisco.Geometry.Shapes
   ( boxLayer
   , ballLayer
