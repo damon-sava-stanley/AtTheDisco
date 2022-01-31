@@ -50,7 +50,7 @@ gradientValue ::
 gradientValue blend x (Gradient gs) = go x gs
   where
     go x g@((v, p):(v', p'):gs)
-      | x < p || x == p = v
+      | x <= p = v
       | x > p && x < p' = blend ((x - p) / (p' - p)) v v'
       | otherwise = go x (tail g)
     go x [(v, p)] = v
