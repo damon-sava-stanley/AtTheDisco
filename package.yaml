@@ -22,8 +22,8 @@ description:         Please see the README on GitHub at <https://github.com/damo
 dependencies:
 - base >= 4.7 && < 5
 - Color >= 0.3 && < 0.4
-- hgeometry >= 0.12
-- hgeometry-combinatorial >= 0.12
+- hgeometry >= 0.13
+- hgeometry-combinatorial >= 0.13
 - lens >= 4.0
 - JuicyPixels >= 3.3
 - HUnit >= 1.6

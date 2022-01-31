@@ -3,7 +3,21 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: hgeometry-0.13@sha256:0181b17e1c2e2868a1f5e54098268465d35bb2031c4a61c3b8721adf4b58b5ab,14745
+    pantry-tree:
+      size: 12660
+      sha256: 5cb072a13e6cfa4a23a6e18d995523bb9dedcd5a673d79dc73fe10978d92d66d
+  original:
+    hackage: hgeometry-0.13@sha256:0181b17e1c2e2868a1f5e54098268465d35bb2031c4a61c3b8721adf4b58b5ab,14745
+- completed:
+    hackage: hgeometry-combinatorial-0.13@sha256:eaa683594551cf1fa0d7a5b854553e674100ea22ba9081b85ed40e89f338e1b7,9555
+    pantry-tree:
+      size: 5620
+      sha256: b9bdcac4761274b56c12ef38d42f5e555b7cba297cc7e5b5695b9a6f86d8a7ea
+  original:
+    hackage: hgeometry-combinatorial-0.13@sha256:eaa683594551cf1fa0d7a5b854553e674100ea22ba9081b85ed40e89f338e1b7,9555
 snapshots:
 - completed:
     size: 586110
