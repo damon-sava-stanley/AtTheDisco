@@ -2,7 +2,7 @@
 module Main where
 
 import Graphics.Color.Standard(SVG(..), color)
-import Graphics.Color.Model (Color, Alpha, RGB)
+import Graphics.Color.Model (Color, Alpha, RGB, Elevator (toDouble, toWord16))
 import Graphics.Color.Space (SRGB, Linearity(NonLinear), Illuminant(..), unColorRGB, convertColor)
 import Data.Word (Word16)
 import Data.Geometry (Point(..), Vector(..), xCoord)
@@ -12,10 +12,13 @@ import qualified Data.Geometry.Box as Box
 import Control.Lens((^.))
 import AtTheDisco.Layer(Layer, mask)
 import AtTheDisco.Geometry.Shapes ( boxLayer )
-import AtTheDisco.IO (saveRGBA16LayerPNG, saveRGB16LayerPNG)
+import AtTheDisco.IO
+    ( saveRGBA16LayerPNG, saveRGB16LayerPNG )
 import AtTheDisco.Color.Combination (blendLayers)
 import AtTheDisco.Color.Gradient (colorGradientValue, newGradient)
 import AtTheDisco.Geometry.Gradient (lineSegmentGradient)
+import Data.Either (fromRight)
+import AtTheDisco.IO (loadPNG16)
 
 
 white = unColorRGB (color (SVG :: SVG "white") :: Color (SRGB 'NonLinear) Double) :: Color RGB Double
@@ -36,6 +39,20 @@ saveGradient = saveRGB16LayerPNG (\p -> colorGradientValue ((p^.xCoord) / 100) $
 
 saveDiagonalGradient = saveRGB16LayerPNG (\p -> colorGradientValue (lineSegmentGradient (Point2 20 10) (Vector2 10 70) p) $ newGradient black white)
 
+blendBothGradients :: IO (Layer (Point 2) Int (Color RGB Double))
+blendBothGradients = 
+    let grad1 :: IO (Layer (Point 2) Int (Color RGB Double))
+        grad1 = do 
+            x <- loadPNG16 "samples/gradient.png" (toWord16 <$> black)
+            let y = (fromRight (const (toWord16 <$> black)) x :: Layer (Point 2) Int (Color RGB Word16))
+            return $ fmap toDouble . y
+        grad2 :: IO (Layer (Point 2) Int (Color RGB Double))
+        grad2 = do 
+            x <- loadPNG16 "samples/diagonalGradient.png" (toWord16 <$> black)
+            let y = fromRight (const (toWord16 <$> black)) x
+            return $ fmap toDouble . y
+    in blendLayers 0.5 <$> grad1 <*> grad2
+
 main :: IO ()
 main = do
     saveWhiteImage 100 100 "samples/white.png"
@@ -43,4 +60,6 @@ main = do
     saveBox 100 100 "samples/box.png"
     saveGradient 100 100 "samples/gradient.png"
     saveDiagonalGradient 100 100 "samples/diagonalGradient.png"
+    gradients <- blendBothGradients
+    saveRGB16LayerPNG gradients 100 100 "samples/blendedGradients.png"
     return ()
