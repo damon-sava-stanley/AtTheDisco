@@ -6,15 +6,16 @@ import           AtTheDisco.Color.Combination      (blendLayers)
 import           AtTheDisco.Color.Gradient         (colorGradientValue,
                                                     newGradient)
 import           AtTheDisco.Geometry.Gradient      (lineSegmentGradient)
-import           AtTheDisco.Geometry.Shapes        (boxLayer)
+import           AtTheDisco.Geometry.Shapes        (Drawable (draw))
+import           AtTheDisco.Geometry.Translations
 import           AtTheDisco.IO                     (loadPNG16,
                                                     saveRGB16LayerPNG,
                                                     saveRGBA16LayerPNG)
-import           AtTheDisco.Layer                  (Layer, mask)
+import           AtTheDisco.Layer                  (Layer, ScreenLayer, mask)
 import           Control.Lens                      ((^.))
 import           Data.Either                       (fromRight)
 import           Data.Geometry                     (Point (..), Vector (..),
-                                                    xCoord)
+                                                    origin, xCoord, yCoord)
 import           Data.Geometry.Box                 (Box)
 import qualified Data.Geometry.Box                 as Box
 import           Data.Geometry.Vector.VectorFamily
@@ -38,8 +39,7 @@ smallBox = Box.fromCenter (Point2 50 50) (Vector2 40 40)
 saveWhiteImage :: Int -> Int -> FilePath -> IO ()
 saveWhiteImage = saveRGB16LayerPNG (const white)
 
-saveBox =
-  saveRGB16LayerPNG (mask (boxLayer smallBox) (const white) (const black))
+saveBox = saveRGB16LayerPNG (mask (draw smallBox) (const white) (const black))
 
 saveLightGray = saveRGB16LayerPNG (blendLayers 0.7 (const white) (const black))
 
@@ -68,6 +68,27 @@ blendBothGradients =
         return $ fmap toDouble . y
    in blendLayers 0.5 <$> grad1 <*> grad2
 
+checkers :: (RealFrac a) => ScreenLayer (Point 2) a
+checkers p = odd (floor (p ^. xCoord) + floor (p ^. yCoord))
+
+coloredCheckers :: (RealFrac a) => Layer (Point 2) a (Color RGB Double)
+coloredCheckers = mask checkers (const white) (const black)
+
+scaledCheckers :: (Floating a, RealFrac a) => ScreenLayer (Point 2) a
+scaledCheckers = scaleLayerAbout origin (Vector2 2 2) checkers
+
+polarCheckers ::
+     (RealFloat a, Floating a, RealFrac a) => ScreenLayer (Point 2) a
+polarCheckers =
+  translateLayer (Vector2 50 50) .
+  toPolarLayer . scaleLayerAbout origin (Vector2 1 (1 / pi)) $
+  scaledCheckers
+
+coloredPolarCheckers ::
+     (RealFloat a, Floating a, RealFrac a)
+  => Layer (Point 2) a (Color RGB Double)
+coloredPolarCheckers = mask polarCheckers (const white) (const black)
+
 main :: IO ()
 main = do
   saveWhiteImage 100 100 "samples/white.png"
@@ -77,4 +98,10 @@ main = do
   saveDiagonalGradient 100 100 "samples/diagonalGradient.png"
   gradients <- blendBothGradients
   saveRGB16LayerPNG gradients 100 100 "samples/blendedGradients.png"
+  saveRGB16LayerPNG coloredCheckers 100 100 "samples/coloredCheckers.png"
+  saveRGB16LayerPNG
+    coloredPolarCheckers
+    100
+    100
+    "samples/coloredPolarCheckers.png"
   return ()
