@@ -30,7 +30,7 @@ module AtTheDisco.Geometry
   )
 where
 
-import Control.Lens (Identity (Identity), Lens', over, (&), (.~), (^.))
+import Control.Lens (Bifunctor (bimap), Identity (Identity), Lens', over, (&), (.~), (^.))
 import Control.Lens.Getter (view)
 import Control.Lens.TH (makeLenses)
 import Data.Bifunctor (Bifunctor (second))
@@ -40,33 +40,29 @@ import Data.Function (on)
 import Data.Geometry
   ( Dimension,
     HasEnd (end),
-    HasIntersectionWith (intersects),
+    HasIntersectionWith (..),
     HasStart (start),
-    Intersection,
     IntersectionOf,
-    IsIntersectableWith,
-    IsTransformable,
+    IsTransformable (..),
     LineSegment,
-    MultiPolygon,
-    NoIntersection (NoIntersection),
+    NoIntersection,
     NumType,
     Point,
-    PointFunctor (pmap),
+    PointFunctor (..),
     PolyLine,
     Polygon,
     SimplePolygon,
     edgeSegments,
     fromPointsUnsafe,
-    inPolygon,
+    insidePolygon,
     interpolate,
     listEdges,
-    outerBoundaryVector,
     outerVertex,
     segmentLength,
     sqDistanceToSegArg,
   )
 import Data.Geometry.Ball (Disk)
-import Data.Geometry.Boundary (PointLocationResult (Inside))
+import Data.Geometry.Boundary (PointLocationResult (Inside, Outside))
 import Data.Geometry.Box
   ( IsBoxable (boundingBox),
     Rectangle,
@@ -92,7 +88,12 @@ data FiniteGeometry p r
   = ATDLineSegment (LineSegment 2 p r)
   | ATDPolyLine (PolyLine 2 p r)
   | ATDSimplePolygon (SimplePolygon p r)
-  deriving (Generic, Eq, Show, Functor)
+  deriving (Generic, Eq, Show)
+
+instance Bifunctor FiniteGeometry where
+  bimap ef cf (ATDLineSegment ls) = ATDLineSegment $ bimap ef cf ls
+  bimap ef cf (ATDPolyLine ls) = ATDPolyLine $ bimap ef cf ls
+  bimap ef cf (ATDSimplePolygon ls) = ATDSimplePolygon $ bimap ef cf ls
 
 type instance Dimension (FiniteGeometry p r) = 2
 
@@ -266,7 +267,7 @@ instance HasInside (PolyLine 2) p r where
   getInside p v = Nothing
 
 instance (Fractional r, Ord r) => HasInside SimplePolygon p r where
-  getInside p v = if p `inPolygon` v == Inside then Just payload else Nothing
+  getInside p v = if p `insidePolygon` v then Just payload else Nothing
     where
       payload = v ^. outerVertex 0 . extra
 
@@ -320,14 +321,17 @@ instance (Fractional r, Ord r) => Projectable FiniteGeometry p r where
 -- | `FiniteGeometries` represents a non-empty collection of `FiniteGeometry`. When this matters, objects earlier
 --   in the sequence are considered on top.
 newtype FiniteGeometries p r = FiniteGeometries
-  { _unwrapFiniteGeometries :: LSeq 1 (FiniteGeometry p r) }
-  deriving (Eq, Show, Generic, Functor)
+  {_unwrapFiniteGeometries :: LSeq 1 (FiniteGeometry p r)}
+  deriving (Eq, Show, Generic)
 
 $(makeLenses ''FiniteGeometries)
 
 type instance Dimension (FiniteGeometries p r) = 2
 
 type instance NumType (FiniteGeometries p r) = r
+
+instance Bifunctor FiniteGeometries where
+  bimap f g (FiniteGeometries s) = FiniteGeometries (fmap (bimap f g) s)
 
 instance PointFunctor (FiniteGeometries p) where
   pmap f = over unwrapFiniteGeometries (fmap (pmap f))
