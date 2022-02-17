@@ -3,16 +3,20 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+
 module Test.AtTheDisco.ArbitraryGeometry where
 
+import Algorithms.Geometry.ConvexHull (convexHull)
 import AtTheDisco.Geometry
 import Control.Arrow (Arrow (second))
 import Control.Lens (toListOf, view, (^.), (^..))
-import Control.Monad (liftM2)
-import Data.Ext (core, extra, type (:+))
+import Control.Monad (liftM2, replicateM)
+import Data.Ext (core, extra, type (:+) ((:+)))
 import Data.Foldable (Foldable (toList))
+import Data.Function (on)
 import Data.Geometry
-  ( HasEnd (end),
+  ( Affine ((.+^)),
+    HasEnd (end),
     HasStart (start),
     IsTransformable (transformBy),
     LineSegment (LineSegment'),
@@ -24,13 +28,17 @@ import Data.Geometry
     Vector,
     qdA,
   )
+import qualified Data.Geometry as PG
 import Data.Geometry.Box (IsBoxable (boundingBox))
 import Data.Geometry.Matrix (Matrix (Matrix))
 import qualified Data.Geometry.PolyLine as PL
 import qualified Data.Geometry.Polygon as PG
+import Data.Geometry.Polygon.Convex (simplePolygon)
+import Data.Geometry.Vector.VectorFamily
 import Data.Intersection (HasIntersectionWith (intersects))
-import Data.List (nubBy)
-import Data.Maybe (catMaybes, fromJust, mapMaybe)
+import Data.List (nubBy, sort, nub)
+import qualified Data.List.NonEmpty as NE
+import Data.Maybe (catMaybes, fromJust, mapMaybe, fromMaybe)
 import Data.Vector.Circular (CircularVector)
 import qualified Data.Vector.Circular as CV
 import GHC.Generics (Generic)
@@ -38,14 +46,15 @@ import System.Random (Random (..))
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
-    ( Arbitrary(..),
-      Gen,
-      vector,
-      choose,
-      chooseInt,
-      sized,
-      suchThat,
-      Arbitrary1(..) )
+  ( Arbitrary (..),
+    Arbitrary1 (..),
+    Gen,
+    choose,
+    chooseInt,
+    sized,
+    suchThat,
+    vector, suchThatMaybe
+  )
 
 -- Arbitrary Geometreies
 
@@ -66,33 +75,21 @@ instance forall p r. (Eq r, Floating r, Arbitrary p, Arbitrary r) => Arbitrary (
           `suchThat` all (\s -> shapeLength s /= 0)
   shrink = mapMaybe PL.fromPoints . shrink . toList . view PL.points
 
-instance Arbitrary1 CircularVector where
-  liftArbitrary gen = sized $ \n -> do
-    l <- choose (1, n)
-    CV.replicate1M l gen
-  liftShrink s v = mapMaybe (CV.fromList . s) . CV.toList $ v
+-- A potentially faster version of length ls >= n, in that it doesn't evaluate the whole list.
+lengthAtLeast :: (Ord t, Num t) => t -> [a] -> Bool
+lengthAtLeast n [] = n <= 0
+lengthAtLeast n (h : xs) = n <= 0 || lengthAtLeast (n - 1) xs
 
-instance forall p r. (Arbitrary p, Arbitrary r, Eq r, Num r) => Arbitrary (SimplePolygon p r) where
-  arbitrary = fmap PG.fromCircularVector cv3Uniq
-    where
-      cv3 :: Gen (CircularVector (Point 2 r :+ p))
-      cv3 = CV.cons <$> arbitrary <*> (CV.cons <$> arbitrary <*> arbitrary)
-      cv3Uniq :: Gen (CircularVector (Point 2 r :+ p))
-      cv3Uniq =
-        cv3
-          `suchThat` ( isJust
-                         . foldr
-                           ( \a m -> do
-                               b <- m
-                               if b /= a ^. core then Just (a ^. core) else Nothing
-                           )
-                           (Just (Point2 0 0))
-                     )
-      isJust (Just _) = True
-      isJust Nothing = False
-  shrink = fmap PG.fromCircularVector . shrink . fromJust . CV.fromVector' . PG.toVector
+shrinkPolygon :: (Arbitrary p, Arbitrary r) => SimplePolygon p r -> [SimplePolygon p r]
+shrinkPolygon p =
+  let shrunkPoints = filter (lengthAtLeast 3) . shrink . PG.toPoints $ p
+   in fmap PG.unsafeFromPoints shrunkPoints
 
-instance forall p r. (Arbitrary p, Arbitrary r, Eq r, Floating r) => Arbitrary (FiniteGeometry p r) where
+instance forall p r. (Arbitrary p, Arbitrary r, Floating r, Ord r, Random r) => Arbitrary (SimplePolygon p r) where
+  arbitrary = fmap (\(PolygonAroundPoint _ pg) -> pg) arbitrary
+  shrink = shrinkPolygon
+
+instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => Arbitrary (FiniteGeometry p r) where
   arbitrary = do
     t <- chooseInt (0, 2)
     case t of
@@ -103,7 +100,7 @@ instance forall p r. (Arbitrary p, Arbitrary r, Eq r, Floating r) => Arbitrary (
   shrink (ATDPolyLine v) = fmap ATDPolyLine . shrink $ v
   shrink (ATDSimplePolygon v) = fmap ATDSimplePolygon . shrink $ v
 
-instance forall p r. (Arbitrary p, Arbitrary r, Eq r, Floating r) => Arbitrary (FiniteGeometries p r) where
+instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => Arbitrary (FiniteGeometries p r) where
   arbitrary = fmap FiniteGeometries arbitrary
   shrink (FiniteGeometries seq) = fmap FiniteGeometries . shrink $ seq
 
@@ -121,3 +118,35 @@ instance (Arbitrary a) => Arbitrary (Transformation 2 a) where
 
 instance (Arbitrary a, Random a, Ord a, Num a) => Arbitrary (UnitInterval a) where
   arbitrary = unitInterval <$> choose (0, 1)
+
+-- | A type whose arbitrary instances ensure that the polygon are around the point.
+data PolygonAroundPoint p r = PolygonAroundPoint (Point 2 r) (SimplePolygon p r) deriving (Show)
+
+polarToVec :: Floating r => r -> r -> Vector 2 r
+polarToVec theta r = Vector2 (r * cos theta) (r * sin theta)
+
+instance forall p r. (Arbitrary p, Arbitrary r, Floating r, Random r, Ord r) => Arbitrary (PolygonAroundPoint p r) where
+  arbitrary = fromMaybe <$> safePolygonAroundPoint <*> corrected
+    where
+      base = sized $ \n -> do
+        size <- choose (0, n)
+        p :: Point 2 r <- arbitrary
+        -- ensure that there's a triangle in the hull that contains our point
+        angles :: [r] <- sort . ([0, 2*pi/3, 4*pi/3]<>)  <$> replicateM size (choose (1e6, 2 * pi))
+        lengths :: [r] <- map ((+1e6) . abs) <$> vector (size + 3)
+        annotations :: [p] <- vector (size + 3)
+        let offsets = zipWith polarToVec angles lengths
+        let points = map (p .+^) offsets
+        let annotated = zipWith (:+) points annotations
+        return $ PolygonAroundPoint p (PG.fromPoints annotated)
+      -- Shouldn't need this such that, but sometimes floating point nonsense strikes. Should use an arbitrary position type,
+      -- but those aren't floating. (I've hacked this with `UR`, which kind of works)
+      corrected = base `suchThatMaybe` (\(PolygonAroundPoint p pg)-> PG.insidePolygon p pg)
+      -- A nice box containing our polygon. Should only be used if things go really bad
+      safePolygonAroundPoint = do
+        c <- arbitrary
+        return $ PolygonAroundPoint (Point2 0 0) (PG.fromPoints [Point2 10 10 :+ c, Point2 (-10) 10 :+ c, 
+                                                                 Point2 (-10) (-10) :+ c, Point2 10 (-10) :+ c])
+  shrink (PolygonAroundPoint p pg) =  
+    let pgs = PG.insidePolygon p `filter` shrinkPolygon pg
+    in fmap (PolygonAroundPoint p) pgs

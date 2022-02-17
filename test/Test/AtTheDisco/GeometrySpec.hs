@@ -2,144 +2,50 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.AtTheDisco.GeometrySpec (spec) where
 
-import Test.AtTheDisco.ArbitraryGeometry()
 import AtTheDisco.Geometry
-import Control.Arrow (Arrow (second))
-import Control.Lens (toListOf, view, (^.), (^..))
-import Control.Monad (liftM2)
-import Data.Ext (core, extra, type (:+))
+import Data.Bifunctor ( Bifunctor(second) )
+import Control.Lens ((^.))
+import Data.Ext (core,type  (:+) ((:+)))
 import Data.Foldable (Foldable (toList))
 import Data.Geometry
   ( HasIntersectionWith (intersects),
     IsTransformable (transformBy),
     LineSegment,
-    Point,
+    Point (Point2),
     PointFunctor (pmap),
     PolyLine,
     SimplePolygon,
     Transformation,
-    qdA,
+    qdA, pickPoint, insidePolygon
   )
 import Data.Geometry.Box (IsBoxable (boundingBox))
-import Data.Geometry.Matrix (Matrix (Matrix))
-import qualified Data.Geometry.PolyLine as PL
-import qualified Data.Geometry.Polygon as PG
 import Data.Intersection (HasIntersectionWith (intersects))
-import Data.List (nubBy)
-import Data.Maybe (catMaybes, fromJust, mapMaybe)
-import Data.Vector.Circular (CircularVector)
-import qualified Data.Vector.Circular as CV
-import GHC.Generics (Generic)
-import System.Random (Random (..))
+import Test.AtTheDisco.ArbitraryGeometry (PolygonAroundPoint (PolygonAroundPoint))
+import Test.AtTheDisco.GeometryTypes
 import Test.Hspec
   ( Expectation,
     Spec,
     describe,
     shouldBe,
-    shouldSatisfy,
+    shouldSatisfy, context, it
   )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
-  ( Arbitrary (arbitrary),
-    arbitrarySizedFractional,
-    choose,
-  )
-
--- Convenience synonyms
-
-type LS2F = LineSegment 2 Int FloatingNaNWrapper
-
-type PL2F = PolyLine 2 Int FloatingNaNWrapper
-
-type PGF = SimplePolygon Int FloatingNaNWrapper
-
-type T2F = Transformation 2 FloatingNaNWrapper
-
-type UIUR = UnitInterval UR
-
-type LS2UR = LineSegment 2 Int UR
-
-type PL2UR = PolyLine 2 Int UR
-
-type PG2UR = SimplePolygon Int UR
-
-type FGUR = FiniteGeometry Int UR
-
--- Wrappers
-
--- A wrapper around `Float` to change the behavior so that NaN == NaN
-newtype FloatingNaNWrapper = FloatingNaNWrapper Float deriving (Arbitrary, Num, Fractional, Floating, Ord)
-
-instance Eq FloatingNaNWrapper where
-  (FloatingNaNWrapper a) == (FloatingNaNWrapper b) = (isNaN a && isNaN b) || (a == b)
-
-instance Show FloatingNaNWrapper where
-  show (FloatingNaNWrapper a) = show a
-
-newtype FloatInUnitInterval = FloatInUnitInterval Float deriving (Eq, Num, Fractional, Ord)
-
-instance Arbitrary FloatInUnitInterval where
-  arbitrary = FloatInUnitInterval <$> choose (0, 1)
-
-instance Show FloatInUnitInterval where
-  show (FloatInUnitInterval x) = show x
-
--- A Rational drawn arbitrarily on the unit interval
-newtype UR = UR Rational deriving (Eq, Num, Ord, Fractional, Show)
-
-asDouble :: (Double -> Double) -> UR -> UR
-asDouble f (UR x) = UR . toRational . f . fromRational $ x
-
-instance Floating UR where
-  pi = UR . toRational $ (pi :: Double)
-  exp = asDouble exp
-  log = asDouble log
-  sin = asDouble sin
-  cos = asDouble cos
-  asin = asDouble asin
-  acos = asDouble acos
-  atan = asDouble atan
-  sinh = asDouble sinh
-  cosh = asDouble cosh
-  asinh = asDouble sinh
-  acosh = asDouble acosh
-  atanh = asDouble atanh
-
-instance Random UR where
-  randomR (UR l, UR u) g = let (b, g') = randomR (fromRational l :: Double, fromRational u) g in (UR (toRational b), g')
-
-  random g = randomR (0, 1) g
-
-instance Arbitrary UR where
-  arbitrary = UR <$> arbitrarySizedFractional
-
-overUnits :: (Ord a, Fractional a) => (a -> a -> a) -> UnitInterval a -> UnitInterval a -> UnitInterval a
-overUnits g x y = unitInterval (viewUnitInterval x `g` viewUnitInterval y)
-
-divUnit :: (Ord a, Fractional a) => UnitInterval a -> UnitInterval a -> UnitInterval a
-divUnit = overUnits (/)
-
-subUnit :: (Ord a, Fractional a) => UnitInterval a -> UnitInterval a -> UnitInterval a
-subUnit = overUnits (-)
-
-newtype CloseEnough a = CloseEnough a deriving (Show)
-
--- Obviously this violates every law known to man, but it's just for tests.
-instance Eq (CloseEnough UR) where
-  (CloseEnough x) == (CloseEnough y) = abs (x - y) < 1e-8
-
-instance Eq (CloseEnough (Point 2 UR)) where
-  (CloseEnough p1) == (CloseEnough p2) = qdA p1 p2 < 1e-8
+import Data.Maybe (isJust)
+import Data.Geometry.Polygon (fromPoints)
+import qualified Data.LSeq as LSeq 
 
 -- Test
 
 pass :: Expectation
 pass = 1 `shouldBe` 1
+
+failTest :: Expectation
+failTest = 0 `shouldBe` 1
 
 guard :: Bool -> Expectation -> Expectation
 guard True e = pass
@@ -220,8 +126,28 @@ spec = do
   describe "Projection Tests" $ do
     prop "interpolated points are their own projection" $
       \(x :: UIUR) (ls :: FGUR) ->
-          let p = interp x ls
-           in second (^. core) (project p ls)
-                `shouldBe` (0, p)
+        let p = interp x ls
+         in second (^. core) (project p ls)
+              `shouldBe` (0, p)
     prop "projected points intersect shape" $ \(p :: Point 2 UR) (ls :: FGUR) ->
-          let (_, p') = project p ls in (p'^.core) `shouldSatisfy` (`intersects` ls)
+      let (_, p') = project p ls in (p' ^. core) `shouldSatisfy` (`intersects` ls)
+  describe "Inside Tests" $ do
+    it "inside polygon sanity check"   
+      (let p :: Point 2 UR = Point2 0 0
+           pg :: SimplePolygon Int UR = fromPoints [Point2 1000000 0 :+ 0, 
+             Point2 (-500000.06) 866025.4 :+ 0, Point2 (-499999.9) (-866025.44) :+ 0]
+      in p `shouldSatisfy` (`insidePolygon` pg))
+    it "getinside polygon sanity check"   
+      (let p :: Point 2 UR = Point2 0 0
+           pg :: SimplePolygon Int UR = fromPoints [Point2 1000000.0 0.0 :+ 0,
+             Point2 (-500000.06) 866025.4 :+ 0, Point2 (-499999.9) (-866025.44) :+ 0]
+      in getInside p pg `shouldSatisfy` isJust)
+    prop "inside a polygon is inside" $ do
+      \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) -> getInside p pg `shouldSatisfy` isJust
+  describe "Geometries Tests" $ do 
+    prop "inside prefers first" (
+      \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) ->
+        let pg' = second (+1) pg
+            fgs = FiniteGeometries (LSeq.promise . LSeq.fromList $
+              [ATDSimplePolygon pg, ATDSimplePolygon pg'])
+        in getInside p fgs `shouldBe` getInside p pg)
