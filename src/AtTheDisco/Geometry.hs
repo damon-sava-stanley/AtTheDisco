@@ -347,5 +347,3 @@ instance (Fractional r, Ord r) => HasInside FiniteGeometries p r where
 -- No `Monoid` as we are requiring nonempty.
 instance Semigroup (FiniteGeometries p r) where
   (FiniteGeometries l1) <> (FiniteGeometries l2) = FiniteGeometries (l1 <> l2)
-
--- Helper (unexported) functions
