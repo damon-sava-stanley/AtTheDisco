@@ -17,7 +17,7 @@ import Data.Geometry.Vector.VectorFamily
 -- | Given a `Drawable` and `IsBoxable` 2d shape, return a vector representing its dimensions (rounded down) and a
 --   drawing function that starts from (0, 0)
 drawPicture :: (2 ~ Dimension (f r), r ~ NumType (f r), 
-                Ord r, RealFrac r, Drawable f r c, IsBoxable (f r)) 
+                Ord r, RealFrac r, Drawable f c r, IsBoxable (f r)) 
             => f r -> (Vector 2 Int, Point 2 Int -> c)
 drawPicture shape = (dims, \p -> draw shape $ fmap fromIntegral p .+^ o)
   where
@@ -27,7 +27,7 @@ drawPicture shape = (dims, \p -> draw shape $ fmap fromIntegral p .+^ o)
 
 writePictureBMP :: forall f r c . (2 ~ Dimension (f r), r ~ NumType (f r), 
                     Ord r, RealFrac r, 
-                    Drawable f r c, IsBoxable (f r), 
+                    Drawable f c r, IsBoxable (f r), 
                     Pixel c, BmpEncodable c) 
                 => Proxy c -> f r -> String -> IO ()
 writePictureBMP _ shape fp = writeBitmap fp image

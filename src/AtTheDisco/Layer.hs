@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module AtTheDisco.Layer
   ( -- * Drawing Geometry
@@ -23,11 +24,11 @@ import AtTheDisco.Geometry
     HasInside (getInside),
     Projectable (project),
   )
-import Control.Lens (over, (^.))
+import Control.Lens (over, (^.), Bifunctor (bimap))
 import Control.Lens.TH (makeLenses)
 import Data.Ext (type (:+) ((:+)))
 import Data.Geometry (Dimension, NumType, Point)
-import Data.Geometry.Box (IsBoxable (boundingBox))
+import Data.Geometry.Box (IsBoxable (boundingBox), Rectangle)
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
 
@@ -37,7 +38,7 @@ import Data.Sequence (Seq)
 -- shapes and producing a Pan-style continuous image.
 
 -- | Style information for coloring a piece of geometry.
-data GeometryStyle r c = GeometryStyle
+data GeometryStyle c r = GeometryStyle
   { -- | The radius of the lines.
     _geometryThickness :: r,
     -- | The color of the line. `Nothing` if invisble (should be `Nothing` if the diameter is 0).
@@ -47,7 +48,11 @@ data GeometryStyle r c = GeometryStyle
     --   not the colors should help.
     _geometryFill :: Maybe (Point 2 r -> Maybe c)
   }
-  deriving (Functor)
+
+-- | Apply a function to the colors.
+mapGeometryStyleColor :: (c -> d) -> GeometryStyle c r -> GeometryStyle d r
+mapGeometryStyleColor f (GeometryStyle t lc g) = 
+  GeometryStyle t (f <$> lc) (fmap (fmap f .) g)
 
 $(makeLenses ''GeometryStyle)
 
@@ -57,12 +62,12 @@ instance (Show r, Show c) => Show (GeometryStyle r c) where
       <> (case f of Just _ -> "Just _"; Nothing -> "Nothing")
 
 -- | A `Drawable` shape can be samples for color at any point.
-class Drawable f r c where
+class Drawable f c r where
   draw :: f r -> Point 2 r -> c
 
 instance
-  (Ord r, Num r, HasInside f (GeometryStyle r c) r, Projectable f (GeometryStyle r c) r) =>
-  Drawable (f (GeometryStyle r c)) r (Maybe c)
+  (Ord r, Num r, HasInside f (GeometryStyle c r) r, Projectable f (GeometryStyle c r) r) =>
+  Drawable (f (GeometryStyle c r)) (Maybe c) r
   where
   draw shape point = lineColor `firstJust` insideColor
     where
@@ -77,3 +82,4 @@ instance
         fill' point
       firstJust (Just x) _ = Just x
       firstJust _ y = y
+

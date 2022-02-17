@@ -13,16 +13,17 @@ import Test.AtTheDisco.GeometryTypes
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
-import qualified Data.LSeq as LSeq 
+import qualified Data.LSeq as LSeq
 import Data.Data ( Proxy(..) )
 
 instance Arbitrary2 GeometryStyle where
-  liftArbitrary2 genR genC = do
-    thickness <- genR
-    color <- liftArbitrary genC
-    fillColor <- liftArbitrary genC
-    let fill = fmap (\c x -> Just c) fillColor
-    return $ GeometryStyle thickness color fill
+  liftArbitrary2 genC genR = do
+    (thickness :: r) <- genR
+    (color :: Maybe c) <- liftArbitrary genC
+    (fillColor :: Maybe c) <- liftArbitrary genC
+    let fill = fmap (const . Just) fillColor
+    let gs :: GeometryStyle c r = GeometryStyle thickness color fill
+    return gs
 
 instance Arbitrary r => Arbitrary1 (GeometryStyle r) where
   liftArbitrary = liftArbitrary2 arbitrary
@@ -34,7 +35,7 @@ spec :: Spec
 spec = do
   describe "Drawing Geometry" $ do
     prop "points on boundary drawn" $ do
-      \(c :: Int) (s :: GeometryStyle UR Int) (x :: UIUR) (sh :: FGUR) ->
+      \(c :: Int) (s :: GeometryStyle Int UR) (x :: UIUR) (sh :: FGUR) ->
         draw (first (const $s & geometryLineColor ?~ c) sh) (interp x sh)
           `shouldBe` Just c
     prop "inside of a polygon drawn" $ do
