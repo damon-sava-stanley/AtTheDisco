@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 947233a9a7da565d7dd10b5d5d6b397d2c05ba07e1c5e7ff26c15e66e967c8ce
+-- hash: 24b46a78c52d3ba07e0a2fdce4985154d12a69618412804305c73842ba384905
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -68,7 +68,10 @@ test-suite AtTheDisco-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Test.AtTheDisco.ArbitraryGeometry
       Test.AtTheDisco.GeometrySpec
+      Test.AtTheDisco.GeometryTypes
+      Test.AtTheDisco.LayerSpec
       Paths_AtTheDisco
   hs-source-dirs:
       test

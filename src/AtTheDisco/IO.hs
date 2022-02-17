@@ -1,91 +1,37 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module AtTheDisco.IO
-  ( saveRGBA16LayerPNG
-  , saveRGB16LayerPNG
-  , loadPNG16
-  ) where
+module AtTheDisco.IO where
 
-import           AtTheDisco.Layer     (Layer, unwrapVector)
-import           AtTheDisco.Sample    (subsample)
+import AtTheDisco.Layer (Drawable (draw))
+import Codec.Picture (BmpEncodable, Pixel, generateImage, writeBitmap, Image)
+import Control.Lens ((^.))
+import Data.Bifunctor (Bifunctor (bimap))
+import Data.Data (Proxy)
+import Data.Ext (core)
+import Data.Geometry (Dimension, NumType, Point (Point2), Vector, vector, (.+^))
+import Data.Geometry.Box (IsBoxable (boundingBox), height, minPoint, size, width)
+import Data.Geometry.Vector.VectorFamily
 
-import           Codec.Picture        (readPng)
-import qualified Codec.Picture        as JP
-import           Control.Lens         ((^.))
-import           Data.Bits            (unsafeShiftR)
-import           Data.Geometry        (Point, xCoord, yCoord)
-import           Data.Word            (Word16, Word8)
-import           Graphics.Color.Model (Alpha, Color, Elevator (..), RGB,
-                                       fromComponents, toComponents)
-import           System.IO            (FilePath)
-import           Text.Printf          (FormatParse (fpChar))
-
--- TODO: Some TypeClass stuff to get more types on board and have a nicer
--- interface
--- Color <=> JuicyPixel conversions
-colorToJPRGBA16 :: Color (Alpha RGB) Word16 -> JP.PixelRGBA16
-colorToJPRGBA16 c = JP.PixelRGBA16 r g b a
+-- | Given a `Drawable` and `IsBoxable` 2d shape, return a vector representing its dimensions (rounded down) and a
+--   drawing function that starts from (0, 0)
+drawPicture :: (2 ~ Dimension (f r), r ~ NumType (f r), 
+                Ord r, RealFrac r, Drawable f r c, IsBoxable (f r)) 
+            => f r -> (Vector 2 Int, Point 2 Int -> c)
+drawPicture shape = (dims, \p -> draw shape $ fmap fromIntegral p .+^ o)
   where
-    ((r, g, b), a) = toComponents c
+    box = boundingBox shape
+    dims = floor <$> size box
+    o = minPoint box ^. core . vector
 
-jpRGBA16ToColor :: JP.PixelRGBA16 -> Color (Alpha RGB) Word16
-jpRGBA16ToColor (JP.PixelRGBA16 r g b a) = fromComponents ((r, g, b), a)
-
-colorToJPRGB16 :: Color RGB Word16 -> JP.PixelRGB16
-colorToJPRGB16 c = JP.PixelRGB16 r g b
+writePictureBMP :: forall f r c . (2 ~ Dimension (f r), r ~ NumType (f r), 
+                    Ord r, RealFrac r, 
+                    Drawable f r c, IsBoxable (f r), 
+                    Pixel c, BmpEncodable c) 
+                => Proxy c -> f r -> String -> IO ()
+writePictureBMP _ shape fp = writeBitmap fp image
   where
-    (r, g, b) = toComponents c
-
-jpRGB16ToColor :: JP.PixelRGB16 -> Color RGB Word16
-jpRGB16ToColor (JP.PixelRGB16 r g b) = fromComponents (r, g, b)
-
-layerToJPImage ::
-     (JP.Pixel px, Num a)
-  => Layer (Point 2) a px
-  -> Int -- ^ Width
-  -> Int -- ^ Height
-  -> JP.Image px
-layerToJPImage layer = JP.generateImage f
-  where
-    f = unwrapVector . subsample $ layer
-
-saveRGBA16LayerPNG ::
-     (Elevator e, Num a)
-  => Layer (Point 2) a (Color (Alpha RGB) e)
-  -> Int
-  -> Int
-  -> FilePath
-  -> IO ()
-saveRGBA16LayerPNG l w h fp =
-  JP.writePng fp $ layerToJPImage (colorToJPRGBA16 . fmap toWord16 . l) w h
-
-saveRGB16LayerPNG ::
-     (Elevator e, Num a)
-  => Layer (Point 2) a (Color RGB e)
-  -> Int
-  -> Int
-  -> FilePath
-  -> IO ()
-saveRGB16LayerPNG l w h fp =
-  JP.writePng fp $ layerToJPImage (colorToJPRGB16 . fmap toWord16 . l) w h
-
--- | Load a PNG and convert it to RGB 16.
-loadPNG16 ::
-     FilePath
-  -> Color RGB Word16
-  -> IO (Either String (Layer (Point 2) Int (Color RGB Word16)))
-loadPNG16 fp def = do
-  image'' <- JP.readPng fp
-  case image'' of
-    Left s -> return (Left s)
-    Right image' ->
-      let image = JP.convertRGB16 image'
-          width = JP.imageWidth image
-          height = JP.imageHeight image
-          pix x y
-            | x < 0 || x >= width = def
-            | y < 0 || y >= height = def
-            | otherwise = jpRGB16ToColor $ JP.pixelAt image x y
-       in return . Right $ (\v -> pix (v ^. xCoord) (v ^. yCoord))
+    (Vector2 w h, gen) = drawPicture shape
+    image :: Image c -- NB: type signature needed to help GHC out.
+    image = generateImage (\x y -> gen (Point2 x y)) w h
