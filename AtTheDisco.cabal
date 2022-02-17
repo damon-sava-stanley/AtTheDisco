@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1af353671046d1d8b1ef69f12ac215f8500d30ac6a6ccfb917a32f66bd18cfe1
+-- hash: 947233a9a7da565d7dd10b5d5d6b397d2c05ba07e1c5e7ff26c15e66e967c8ce
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -27,27 +27,22 @@ source-repository head
 
 library
   exposed-modules:
-      AtTheDisco.Color.Combination
-      AtTheDisco.Color.Gradient
-      AtTheDisco.Geometry.Gradient
-      AtTheDisco.Geometry.Shapes
-      AtTheDisco.Geometry.Tilings
-      AtTheDisco.Geometry.Translations
+      AtTheDisco.Geometry
       AtTheDisco.IO
       AtTheDisco.Layer
-      AtTheDisco.Sample
   other-modules:
       Paths_AtTheDisco
   hs-source-dirs:
       src
   build-depends:
-      Color >=0.3 && <0.4
-    , HUnit >=1.6
+      Color ==0.3.*
     , JuicyPixels >=3.3
     , base >=4.7 && <5
+    , containers >=0.6
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
     , lens >=4.0
+    , vinyl >=0.13
   default-language: Haskell2010
 
 executable AtTheDisco-exe
@@ -59,34 +54,37 @@ executable AtTheDisco-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       AtTheDisco
-    , Color >=0.3 && <0.4
-    , HUnit >=1.6
+    , Color ==0.3.*
     , JuicyPixels >=3.3
     , base >=4.7 && <5
+    , containers >=0.6
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
     , lens >=4.0
+    , vinyl >=0.13
   default-language: Haskell2010
 
 test-suite AtTheDisco-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Test.AtTheDisco.Color.Combination
-      Test.AtTheDisco.Color.Gradient
-      Test.AtTheDisco.Geometry.Gradient
-      Test.AtTheDisco.Geometry.Shapes
+      Test.AtTheDisco.GeometrySpec
       Paths_AtTheDisco
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       AtTheDisco
-    , Color >=0.3 && <0.4
-    , HUnit >=1.6
+    , Color ==0.3.*
     , JuicyPixels >=3.3
+    , QuickCheck
     , base >=4.7 && <5
+    , containers >=0.6
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
+    , hspec
     , lens >=4.0
+    , random
+    , vector-circular
+    , vinyl >=0.13
   default-language: Haskell2010
