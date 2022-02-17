@@ -8,6 +8,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- |
+-- Module : AtTheDisco.Geometry
+-- Description : Functionality to draw geometry.
+-- Copyright : (c) Damon Stanley, 2022
+-- License : BSD3
+-- Maintainer : damonsava@gmail.com
+-- Stability : experimental
+--
+-- /Layers/ are the abstraction used to organize drawings and style geometry.
 module AtTheDisco.Layer
   ( -- * Drawing Geometry
     -- $drawingGeometry

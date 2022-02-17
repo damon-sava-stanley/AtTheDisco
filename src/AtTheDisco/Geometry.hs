@@ -8,6 +8,17 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+-- |
+-- Module : AtTheDisco.Geometry
+-- Description : Extensions of "Data.Geometry" suited for drawing.
+-- Copyright : (c) Damon Stanley, 2022
+-- License : BSD3
+-- Maintainer : damonsava@gmail.com
+-- Stability : experimental
+--
+-- Contains the geometric types of /AtTheDisco/. In particular 'FiniteGeometry' wraps particular bits of finite geometry
+-- and 'FiniteGeometries' collects them into assemblies. Probably you want to use the convenience functions in
+-- "AtTHeDisco.Builder" to actually build these.
 module AtTheDisco.Geometry
   ( -- * Finite Geometry #fg#
     -- $finiteGeometry
