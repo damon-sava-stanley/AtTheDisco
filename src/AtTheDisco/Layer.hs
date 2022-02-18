@@ -28,8 +28,10 @@ module AtTheDisco.Layer(
   -- $drawLayers
   layerBoundingBox,
   tryLayerBoundingBox,
+  layerBoundingBoxDumb,
   drawTotal,
-  drawPartially
+  drawPartially,
+  drawDumb
 ) where
 
 import AtTheDisco.Geometry
@@ -96,6 +98,18 @@ instance Ord r => Semigroup (DumbLayer r c) where
 
 instance Ord r => Monoid (DumbLayer r c) where
   mempty = DumbLayer NullLayer
+
+data ShowableLayer = forall p b r c . (Show r, Show c) => ShowableLayer (Layer p b r c)
+
+instance (Show r, Show c) => Show (DumbLayer r c) where 
+  show (DumbLayer NullLayer) = "NullLayer"
+  show (DumbLayer (ConstantLayer c)) = "(ConstantLayer " <> show c <> ")"
+  show (DumbLayer (GeometryLayer geo t l f)) = 
+    "(GeometryLayer " <> show geo <> " " <> show t <> " " <> show (DumbLayer f) <> ")"
+  show (DumbLayer (FillHolesLayer t b)) = 
+    "(FillHolesLayer " <> show (DumbLayer t) <> " " <> show (DumbLayer b) <> ")"
+  -- TODO: figure something better out than this. 
+  show (DumbLayer (SampleLayer l)) = "(SampleLayer " <> "_" <> ")"
 
 -- $drawLayers
 --
