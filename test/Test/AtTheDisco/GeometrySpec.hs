@@ -7,37 +7,41 @@
 module Test.AtTheDisco.GeometrySpec (spec) where
 
 import AtTheDisco.Geometry
-import Data.Bifunctor ( Bifunctor(second) )
 import Control.Lens ((^.))
-import Data.Ext (core,type  (:+) ((:+)))
+import Data.Bifunctor (Bifunctor (second))
+import Data.Ext (core, type (:+) ((:+)))
 import Data.Foldable (Foldable (toList))
 import Data.Geometry
   ( HasIntersectionWith (intersects),
     IsTransformable (transformBy),
-    LineSegment,
+    LineSegment (OpenLineSegment),
     Point (Point2),
     PointFunctor (pmap),
     PolyLine,
     SimplePolygon,
     Transformation,
-    qdA, pickPoint, insidePolygon
+    insidePolygon,
+    pickPoint,
+    qdA, sqDistanceToSegArg
   )
 import Data.Geometry.Box (IsBoxable (boundingBox))
+import Data.Geometry.Polygon (fromPoints)
 import Data.Intersection (HasIntersectionWith (intersects))
+import qualified Data.LSeq as LSeq
+import Data.Maybe (isJust)
 import Test.AtTheDisco.ArbitraryGeometry (PolygonAroundPoint (PolygonAroundPoint))
 import Test.AtTheDisco.GeometryTypes
 import Test.Hspec
   ( Expectation,
     Spec,
+    context,
     describe,
+    it,
     shouldBe,
-    shouldSatisfy, context, it
+    shouldSatisfy,
   )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
-import Data.Maybe (isJust)
-import Data.Geometry.Polygon (fromPoints)
-import qualified Data.LSeq as LSeq 
 
 -- Test
 
@@ -129,17 +133,38 @@ spec = do
         let p = interp x ls
          in project p ls `shouldBe` (0, p)
     prop "projected points intersect shape" $ \(p :: Point 2 UR) (ls :: FGUR) ->
-      let (_, p') = project p ls in p'  `shouldSatisfy` (`intersects` ls)
+      let (_, p') = project p ls in p' `shouldSatisfy` (`intersects` ls)
   describe "Inside Tests" $ do
-    it "inside polygon sanity check"   
-      (let p :: Point 2 UR = Point2 0 0
-           pg :: SimplePolygon Int UR = fromPoints [Point2 1000000 0 :+ 0, 
-             Point2 (-500000.06) 866025.4 :+ 0, Point2 (-499999.9) (-866025.44) :+ 0]
-      in p `shouldSatisfy` (`insidePolygon` pg))
-    it "getinside polygon sanity check"   
-      (let p :: Point 2 UR = Point2 0 0
-           pg :: SimplePolygon Int UR = fromPoints [Point2 1000000.0 0.0 :+ 0,
-             Point2 (-500000.06) 866025.4 :+ 0, Point2 (-499999.9) (-866025.44) :+ 0]
-      in p `shouldSatisfy` (`isInside` pg))
+    it
+      "inside polygon sanity check"
+      ( let p :: Point 2 UR = Point2 0 0
+            pg :: SimplePolygon Int UR =
+              fromPoints
+                [ Point2 1000000 0 :+ 0,
+                  Point2 (-500000.06) 866025.4 :+ 0,
+                  Point2 (-499999.9) (-866025.44) :+ 0
+                ]
+         in p `shouldSatisfy` (`insidePolygon` pg)
+      )
+    it
+      "getinside polygon sanity check"
+      ( let p :: Point 2 UR = Point2 0 0
+            pg :: SimplePolygon Int UR =
+              fromPoints
+                [ Point2 1000000.0 0.0 :+ 0,
+                  Point2 (-500000.06) 866025.4 :+ 0,
+                  Point2 (-499999.9) (-866025.44) :+ 0
+                ]
+         in p `shouldSatisfy` (`isInside` pg)
+      )
     prop "inside a polygon is inside" $ do
       \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) -> p `shouldSatisfy` (`isInside` pg)
+  describe "Finitegeometries Tests" $ do
+    prop "satisfies semigroup associativity" $ do
+      \(a :: FiniteGeometries Int Float) b c -> a <> (b <> c) `shouldBe` (a <> b) <> c
+  describe "Misc Tests" $ do
+    context "hsgeometry bug: sqSitanceToSeg" $
+      it "should work with open line segments" $
+        let ls = OpenLineSegment (Point2 0 0 :+ ()) (Point2 1 0 :+ ())
+            p = Point2 2 0
+        in  snd (sqDistanceToSegArg p ls) == Point2 1 0
