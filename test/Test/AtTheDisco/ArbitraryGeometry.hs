@@ -19,7 +19,7 @@ import Data.Geometry
     HasEnd (end),
     HasStart (start),
     IsTransformable (transformBy),
-    LineSegment (LineSegment'),
+    LineSegment (LineSegment', ClosedLineSegment),
     Point (Point2),
     PointFunctor (pmap),
     PolyLine,
@@ -90,6 +90,9 @@ instance forall p r. (Arbitrary p, Arbitrary r, Floating r, Ord r, Random r) => 
   arbitrary = fmap (\(PolygonAroundPoint _ pg) -> pg) arbitrary
   shrink = shrinkPolygon
 
+forceClosed :: LineSegment 2 p r -> LineSegment 2 p r
+forceClosed (LineSegment' p r) = ClosedLineSegment p r
+
 instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => Arbitrary (FiniteGeometry p r) where
   arbitrary = do
     t <- chooseInt (0, 2)
@@ -97,7 +100,9 @@ instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => 
       0 -> fmap ATDLineSegment (arbitrary :: Gen (LineSegment 2 p r))
       1 -> fmap ATDPolyLine (arbitrary :: Gen (PolyLine 2 p r))
       _ -> fmap ATDSimplePolygon (arbitrary :: Gen (SimplePolygon p r))
-  shrink (ATDLineSegment v) = fmap ATDLineSegment . shrink $ v
+  -- that `forceClosed` prevents us from experiencing false negatives with tests
+  -- where the endpoints of an open segment are technically not on the list.
+  shrink (ATDLineSegment v) = fmap (ATDLineSegment . forceClosed) . shrink $ v
   shrink (ATDPolyLine v) = fmap ATDPolyLine . shrink $ v
   shrink (ATDSimplePolygon v) = fmap ATDSimplePolygon . shrink $ v
 
