@@ -81,7 +81,7 @@ data Layer :: Partiality -> BoundingBox -> * -> * -> *  where
   -- | A 'ConstantLayer' is a total layer that returns a constant layer.
   ConstantLayer :: c -> Layer Total LacksBoundingBox r c
   -- | A 'GeometryLayer' wraps an underlying 'FiniteGeometries' with styling information.
-  GeometryLayer :: (Fractional r, Ord r) => FiniteGeometries x r -> r -> Maybe c -> Layer p b r c -> Layer Partial HasBoundingBox r c
+  GeometryLayer :: (Fractional r, Ord r) => FiniteGeometries () r -> r -> Maybe c -> Layer p b r c -> Layer Partial HasBoundingBox r c
   -- | A 'FillHolesLayer' fills holes in the first layer with holes in the previous layers.
   --   The bounding box will be resized to fit the bounding boxes of the previous.
   FillHolesLayer :: (Ord r) => Layer p1 b1 r c -> Layer p2 b2 r c -> Layer (AtopPartiality p1 p2)(AtopBoundingBox b1 b2) r c

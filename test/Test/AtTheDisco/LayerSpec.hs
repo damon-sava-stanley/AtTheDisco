@@ -28,19 +28,19 @@ instance Arbitrary r => Arbitrary1 (GeometryStyle r) where
 instance (Arbitrary r, Arbitrary c) => Arbitrary (GeometryStyle r c) where
   arbitrary = liftArbitrary arbitrary
 
-drawPoly :: (Fractional r, Ord r) => SimplePolygon x r -> GeometryStyle c r -> Point 2 r -> Maybe c 
+drawPoly :: (Fractional r, Ord r) => SimplePolygon () r -> GeometryStyle c r -> Point 2 r -> Maybe c 
 drawPoly pg = drawGeometry (fgSingle (ATDSimplePolygon pg))
 
-drawGeometry :: (Fractional r, Ord r) => FiniteGeometries x r -> GeometryStyle c r -> Point 2 r -> Maybe c
+drawGeometry :: (Fractional r, Ord r) => FiniteGeometries () r -> GeometryStyle c r -> Point 2 r -> Maybe c
 drawGeometry geo (GeometryStyle t l f) = drawPartially (GeometryLayer geo t (Just l) (ConstantLayer f))
 
 spec :: Spec
 spec = do
   describe "Drawing Geometry" $ do
     prop "points on boundary drawn" $ do
-      \(c :: Int) (x :: UIUR) (sh :: PG2UR) ->
+      \(c :: Int) (x :: UIUR) (sh :: SimplePolygon () UR) ->
         drawPoly sh (GeometryStyle 0.1 c (c+1)) (interp x sh)
           `shouldBe` Just c
     prop "inside of a polygon drawn" $ do
-      \(c :: Int) (PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) ->
+      \(c :: Int) (PolygonAroundPoint p pg :: PolygonAroundPoint () UR) ->
         drawPoly pg (GeometryStyle 0 (c+1) c) p `shouldBe` Just c
