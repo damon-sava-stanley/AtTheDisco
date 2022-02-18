@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module : AtTheDisco.Geometry
@@ -22,6 +23,7 @@ module AtTheDisco.Layer(
   BoundingBox(..),
   Partiality(..),
   Layer(..),
+  DumbLayer(..),
   -- * Drawing
   -- $drawLayers
   layerBoundingBox,
@@ -86,6 +88,15 @@ data Layer :: Partiality -> BoundingBox -> * -> * -> *  where
   -- | A 'SampleLayer' samples the underlying layer.
   SampleLayer :: (RealFrac r, Integral s) => Layer p b r c -> Layer p b s c
 
+-- | A 'DumbLayer' is a 'Layer' where we have thrown away 'Partiality' and 'BoundingBox' information.
+data DumbLayer r c = forall p b . DumbLayer (Layer p b r c)
+
+instance Ord r => Semigroup (DumbLayer r c) where
+  (DumbLayer t) <> (DumbLayer b) = DumbLayer (FillHolesLayer t b)
+
+instance Ord r => Monoid (DumbLayer r c) where
+  mempty = DumbLayer NullLayer
+
 -- $drawLayers
 --
 -- Functions for drawing layers.
@@ -110,6 +121,10 @@ tryLayerBoundingBox (FillHolesLayer l p) = let b1 = tryLayerBoundingBox l
                                             in boundingBoxList <$> NE.nonEmpty boxes
 tryLayerBoundingBox (SampleLayer l) = pmap (fmap round) <$> tryLayerBoundingBox l
 
+-- | Get the bounding box of a 'DumbLayer'. Must return 'Maybe' as we have forgotten whether it has one.
+layerBoundingBoxDumb :: DumbLayer r c -> Maybe (Rectangle () r)
+layerBoundingBoxDumb (DumbLayer l) = tryLayerBoundingBox l
+
 -- | Draw a total layer.
 drawTotal :: Layer Total b r c -> Point 2 r -> c
 drawTotal l = fromJust . drawPartially l -- N.B. need to be very careful that this is safe.
@@ -125,3 +140,7 @@ drawPartially (GeometryLayer geometry width lineColor fill) point =
    in lc `firstJust` fc
 drawPartially (FillHolesLayer t b) point = drawPartially t point `firstJust` drawPartially b point
 drawPartially (SampleLayer l) point = drawPartially l (fmap fromIntegral point)
+
+-- | Draw a 'DumbLayer', since we don't know whether it's partial, we have to assume that it is.
+drawDumb :: DumbLayer r c -> Point 2 r -> Maybe c
+drawDumb (DumbLayer l) = drawPartially l
