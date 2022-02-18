@@ -55,6 +55,7 @@ import Test.QuickCheck
     suchThat,
     vector, suchThatMaybe
   )
+import qualified Data.LSeq as LSeq
 
 -- Arbitrary Geometreies
 
@@ -100,9 +101,14 @@ instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => 
   shrink (ATDPolyLine v) = fmap ATDPolyLine . shrink $ v
   shrink (ATDSimplePolygon v) = fmap ATDSimplePolygon . shrink $ v
 
-instance forall p r. (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => Arbitrary (FiniteGeometries p r) where
+instance (Arbitrary p, Arbitrary r, Ord r, Floating r, Random r) => Arbitrary (FiniteGeometries p r) where
   arbitrary = fmap FiniteGeometries arbitrary
-  shrink (FiniteGeometries seq) = fmap FiniteGeometries . shrink $ seq
+  shrink (FiniteGeometries seq) =
+    let shrunkGeos = map (FiniteGeometries . LSeq.promise . LSeq.fromList) 
+                   . filter (not . null) . mapM shrink . toList $ seq
+        shrunkList = map (FiniteGeometries . LSeq.promise . LSeq.fromList) 
+                   . filter (not . null) . shrink . toList $ seq
+    in shrunkGeos <> shrunkList
 
 instance Arbitrary1 (Transformation 2) where
   liftArbitrary (gen :: Gen a) = Transformation . Matrix <$> genVec3Vec3
