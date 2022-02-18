@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 24b46a78c52d3ba07e0a2fdce4985154d12a69618412804305c73842ba384905
+-- hash: e1f48abe36ffa81a75ebc55b39505a156509fa5ed65bca7d8d010575f0182a66
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      AtTheDisco.Builder
       AtTheDisco.Geometry
       AtTheDisco.IO
       AtTheDisco.Layer

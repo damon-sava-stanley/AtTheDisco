@@ -127,10 +127,9 @@ spec = do
     prop "interpolated points are their own projection" $
       \(x :: UIUR) (ls :: FGUR) ->
         let p = interp x ls
-         in second (^. core) (project p ls)
-              `shouldBe` (0, p)
+         in project p ls `shouldBe` (0, p)
     prop "projected points intersect shape" $ \(p :: Point 2 UR) (ls :: FGUR) ->
-      let (_, p') = project p ls in (p' ^. core) `shouldSatisfy` (`intersects` ls)
+      let (_, p') = project p ls in p'  `shouldSatisfy` (`intersects` ls)
   describe "Inside Tests" $ do
     it "inside polygon sanity check"   
       (let p :: Point 2 UR = Point2 0 0
@@ -141,13 +140,6 @@ spec = do
       (let p :: Point 2 UR = Point2 0 0
            pg :: SimplePolygon Int UR = fromPoints [Point2 1000000.0 0.0 :+ 0,
              Point2 (-500000.06) 866025.4 :+ 0, Point2 (-499999.9) (-866025.44) :+ 0]
-      in getInside p pg `shouldSatisfy` isJust)
+      in p `shouldSatisfy` (`isInside` pg))
     prop "inside a polygon is inside" $ do
-      \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) -> getInside p pg `shouldSatisfy` isJust
-  describe "Geometries Tests" $ do 
-    prop "inside prefers first" (
-      \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) ->
-        let pg' = second (+1) pg
-            fgs = FiniteGeometries (LSeq.promise . LSeq.fromList $
-              [ATDSimplePolygon pg, ATDSimplePolygon pg'])
-        in getInside p fgs `shouldBe` getInside p pg)
+      \(PolygonAroundPoint p pg :: PolygonAroundPoint Int UR) -> p `shouldSatisfy` (`isInside` pg)

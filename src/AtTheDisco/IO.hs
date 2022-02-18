@@ -4,7 +4,7 @@
 
 module AtTheDisco.IO where
 
-import AtTheDisco.Layer (Drawable (draw))
+import AtTheDisco.Layer
 import Codec.Picture (BmpEncodable, Pixel, generateImage, writeBitmap, Image)
 import Control.Lens ((^.))
 import Data.Bifunctor (Bifunctor (bimap))
@@ -14,24 +14,17 @@ import Data.Geometry (Dimension, NumType, Point (Point2), Vector, vector, (.+^))
 import Data.Geometry.Box (IsBoxable (boundingBox), height, minPoint, size, width)
 import Data.Geometry.Vector.VectorFamily
 
--- | Given a `Drawable` and `IsBoxable` 2d shape, return a vector representing its dimensions (rounded down) and a
---   drawing function that starts from (0, 0)
-drawPicture :: (2 ~ Dimension (f r), r ~ NumType (f r), 
-                Ord r, RealFrac r, Drawable f c r, IsBoxable (f r)) 
-            => f r -> (Vector 2 Int, Point 2 Int -> c)
-drawPicture shape = (dims, \p -> draw shape $ fmap fromIntegral p .+^ o)
+-- | Given a layer, return a 'Vector' representing its dimensions a coloring function that starts at '(0, 0)' and goes up to those dimensions.
+drawPicture :: Integral a => Layer Total HasBoundingBox a c -> (Vector 2 a, Point 2 a -> c)
+drawPicture layer = (dims, \p -> drawTotal layer (p .+^ o))
   where
-    box = boundingBox shape
-    dims = floor <$> size box
+    box = layerBoundingBox layer
+    dims = size box
     o = minPoint box ^. core . vector
 
-writePictureBMP :: forall f r c . (2 ~ Dimension (f r), r ~ NumType (f r), 
-                    Ord r, RealFrac r, 
-                    Drawable f c r, IsBoxable (f r), 
-                    Pixel c, BmpEncodable c) 
-                => Proxy c -> f r -> String -> IO ()
-writePictureBMP _ shape fp = writeBitmap fp image
+writePictureBMP :: (Pixel c, BmpEncodable c)
+                => Layer Total HasBoundingBox Int c -> String -> IO ()
+writePictureBMP shape fp = writeBitmap fp image
   where
     (Vector2 w h, gen) = drawPicture shape
-    image :: Image c -- NB: type signature needed to help GHC out.
     image = generateImage (\x y -> gen (Point2 x y)) w h

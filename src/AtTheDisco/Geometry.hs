@@ -41,10 +41,15 @@ module AtTheDisco.Geometry
   )
 where
 
-import Control.Lens (Bifunctor (bimap), Identity (Identity), Lens', over, (&), (.~), (^.))
-import Control.Lens.Getter (view)
-import Control.Lens.TH (makeLenses)
-import Data.Bifunctor (Bifunctor (second))
+import Control.Lens
+  ( Bifunctor (..),
+    makeLenses,
+    over,
+    view,
+    (&),
+    (.~),
+    (^.),
+  )
 import Data.Ext (core, extra, type (:+) (..))
 import Data.Foldable (Foldable (toList), minimumBy)
 import Data.Function (on)
@@ -68,7 +73,6 @@ import Data.Geometry
     insidePolygon,
     interpolate,
     listEdges,
-    outerVertex,
     segmentLength,
     sqDistanceToSegArg,
   )
@@ -269,23 +273,21 @@ instance (Floating r) => HasLength (FiniteGeometry p) r where
 
 -- | Shapes which have an inside. Note that 1D shape have trivial insides, i.e. nothing is inside them.
 class HasInside f p r where
-  getInside :: Point 2 r -> f p r -> Maybe p
+  isInside :: Point 2 r -> f p r -> Bool
 
 instance HasInside (LineSegment 2) p r where
-  getInside p v = Nothing
+  isInside p v = False
 
 instance HasInside (PolyLine 2) p r where
-  getInside p v = Nothing
+  isInside p v = False
 
 instance (Fractional r, Ord r) => HasInside SimplePolygon p r where
-  getInside p v = if p `insidePolygon` v then Just payload else Nothing
-    where
-      payload = v ^. outerVertex 0 . extra
+  isInside = insidePolygon
 
 instance (Fractional r, Ord r) => HasInside FiniteGeometry p r where
-  getInside p (ATDLineSegment v) = getInside p v
-  getInside p (ATDPolyLine v) = getInside p v
-  getInside p (ATDSimplePolygon v) = getInside p v
+  isInside p (ATDLineSegment v) = isInside p v
+  isInside p (ATDPolyLine v) = isInside p v
+  isInside p (ATDSimplePolygon v) = isInside p v
 
 -- | To "project" a point on to a shape is to find the point on the boundary of the shape closest to the given point.
 class Projectable f p r where
@@ -296,20 +298,17 @@ class Projectable f p r where
     -- | the shape
     f p r ->
     -- | a pair of the distance squared to the projected point and the projected point
-    (r, Point 2 r :+ p)
+    (r, Point 2 r)
 
 instance (Fractional r, Ord r) => Projectable (LineSegment 2) p r where
-  project p seg = second (:+ payload) $ sqDistanceToSegArg p seg
-    where
-      -- choice of payload is arbitrarily that of the start.
-      payload = seg ^. start . extra
+  project = sqDistanceToSegArg
 
 -- Making this a `Projectable` instance would require some type level composition I don't feel like wrestling with.
 projectNonEmptyFoldableLineSegments ::
   (Foldable t, Ord a, Functor t, Projectable f p a) =>
   Point 2 a ->
   t (f p a) ->
-  (a, Point 2 a :+ p)
+  (a, Point 2 a)
 projectNonEmptyFoldableLineSegments p =
   minimumBy (compare `on` fst) . fmap (project p)
 
@@ -354,10 +353,7 @@ instance (Fractional r, Ord r) => Projectable FiniteGeometries p r where
   project p = projectNonEmptyFoldableLineSegments p . view unwrapFiniteGeometries
 
 instance (Fractional r, Ord r) => HasInside FiniteGeometries p r where
-  getInside r = foldr (\x acc -> getInside r x `firstJust` acc) Nothing . view unwrapFiniteGeometries
-    where
-      firstJust (Just a) _ = Just a
-      firstJust _ b = b
+  isInside r = any (isInside r) . view unwrapFiniteGeometries
 
 -- No `Monoid` as we are requiring nonempty.
 instance Semigroup (FiniteGeometries p r) where

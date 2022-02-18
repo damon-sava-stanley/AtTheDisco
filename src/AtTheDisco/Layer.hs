@@ -1,12 +1,11 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
 -- |
 -- Module : AtTheDisco.Geometry
@@ -17,78 +16,112 @@
 -- Stability : experimental
 --
 -- /Layers/ are the abstraction used to organize drawings and style geometry.
-module AtTheDisco.Layer
-  ( -- * Drawing Geometry
-    -- $drawingGeometry
-    GeometryStyle (GeometryStyle),
-    geometryThickness,
-    geometryLineColor,
-    geometryFill,
-    Drawable (..),
-  )
-where
+module AtTheDisco.Layer(
+  -- * Layers
+  -- $layers
+  BoundingBox(..),
+  Partiality(..),
+  Layer(..),
+  -- * Drawing
+  -- $drawLayers
+  layerBoundingBox,
+  tryLayerBoundingBox,
+  drawTotal,
+  drawPartially
+) where
 
 import AtTheDisco.Geometry
   ( FiniteGeometries,
-    HasInside (getInside),
+    HasInside (isInside),
     Projectable (project),
   )
-import Control.Lens (over, (^.), Bifunctor (bimap))
-import Control.Lens.TH (makeLenses)
-import Data.Ext (type (:+) ((:+)))
-import Data.Geometry (Dimension, NumType, Point)
-import Data.Geometry.Box (IsBoxable (boundingBox), Rectangle)
-import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq)
+import Data.Geometry (Point)
+import Data.Maybe (fromJust, mapMaybe, catMaybes)
+import Data.Geometry.Box
+import qualified Data.List.NonEmpty as NE
+import Data.Geometry.Point (PointFunctor(pmap))
 
--- $drawingGeometry
+-- $layers
 --
--- Given an assembly of shapes, see "AtTheDisco.Geometry", provide functions for coloring those
--- shapes and producing a Pan-style continuous image.
+-- Definition of 'Layer', the main type.
 
--- | Style information for coloring a piece of geometry.
-data GeometryStyle c r = GeometryStyle
-  { -- | The radius of the lines.
-    _geometryThickness :: r,
-    -- | The color of the line. `Nothing` if invisble (should be `Nothing` if the diameter is 0).
-    _geometryLineColor :: Maybe c,
-    -- | How this should be filled. Can be an arbitrary pattern.
-    --   Two layers of maybe: the fill as a whole could be `Nothing`, but if it is
-    --   not the colors should help.
-    _geometryFill :: Maybe (Point 2 r -> Maybe c)
-  }
 
--- | Apply a function to the colors.
-mapGeometryStyleColor :: (c -> d) -> GeometryStyle c r -> GeometryStyle d r
-mapGeometryStyleColor f (GeometryStyle t lc g) = 
-  GeometryStyle t (f <$> lc) (fmap (fmap f .) g)
+-- data Partiality = Partial | Total
+data BoundingBox = HasBoundingBox | LacksBoundingBox
 
-$(makeLenses ''GeometryStyle)
+data Partiality where
+  Partial :: Partiality
+  Total :: Partiality
 
-instance (Show r, Show c) => Show (GeometryStyle r c) where
-  show (GeometryStyle t lc f) =
-    "GeometryStyle " <> show t <> " " <> show lc <> " "
-      <> (case f of Just _ -> "Just _"; Nothing -> "Nothing")
+type AtopPartiality :: Partiality -> Partiality -> Partiality
+type family AtopPartiality t b where
+  AtopPartiality Partial Partial = Partial
+  AtopPartiality Total Partial = Total
+  AtopPartiality Partial Total = Total
+  AtopPartiality Total Total = Total
 
--- | A `Drawable` shape can be samples for color at any point.
-class Drawable f c r where
-  draw :: f r -> Point 2 r -> c
+type AtopBoundingBox :: BoundingBox -> BoundingBox -> BoundingBox
+type family AtopBoundingBox t b where
+  AtopBoundingBox HasBoundingBox HasBoundingBox = HasBoundingBox
+  AtopBoundingBox LacksBoundingBox HasBoundingBox = HasBoundingBox
+  AtopBoundingBox HasBoundingBox LacksBoundingBox = HasBoundingBox
+  AtopBoundingBox LacksBoundingBox LacksBoundingBox = HasBoundingBox
 
-instance
-  (Ord r, Num r, HasInside f (GeometryStyle c r) r, Projectable f (GeometryStyle c r) r) =>
-  Drawable (f (GeometryStyle c r)) (Maybe c) r
-  where
-  draw shape point = lineColor `firstJust` insideColor
-    where
-      (sqDist, p :+ cfg) = project point shape
-      r = cfg ^. geometryThickness
-      lineColor = if sqDist <= r * r then cfg ^. geometryLineColor else Nothing
-      inside = getInside point shape
-      insideColor = do
-        cfg' <- inside
-        let fill = cfg' ^. geometryFill
-        fill' <- fill
-        fill' point
-      firstJust (Just x) _ = Just x
-      firstJust _ y = y
+type DemotePartiality :: Partiality -> *
+type family DemotePartiality p where
+  DemotePartiality Partial = Partiality
 
+-- | A 'Layer' is a structured representation of a continuous, partially defined image. We keep track of 
+--  whether that image has a bounding box and whether it is everywhere defined or not.
+data Layer :: Partiality -> BoundingBox -> * -> * -> *  where
+  -- | A 'NullLayer' is an empty layer.
+  NullLayer :: Layer Partial LacksBoundingBox r c
+  -- | A 'ConstantLayer' is a total layer that returns a constant layer.
+  ConstantLayer :: c -> Layer Total LacksBoundingBox r c
+  -- | A 'GeometryLayer' wraps an underlying 'FiniteGeometries' with styling information.
+  GeometryLayer :: (Fractional r, Ord r) => FiniteGeometries x r -> r -> Maybe c -> Layer p b r c -> Layer Partial HasBoundingBox r c
+  -- | A 'FillHolesLayer' fills holes in the first layer with holes in the previous layers.
+  --   The bounding box will be resized to fit the bounding boxes of the previous.
+  FillHolesLayer :: (Ord r) => Layer p1 b1 r c -> Layer p2 b2 r c -> Layer (AtopPartiality p1 p2)(AtopBoundingBox b1 b2) r c
+  -- | A 'SampleLayer' samples the underlying layer.
+  SampleLayer :: (RealFrac r, Integral s) => Layer p b r c -> Layer p b s c
+
+-- $drawLayers
+--
+-- Functions for drawing layers.
+
+-- Helper
+firstJust :: Maybe a -> Maybe a -> Maybe a
+firstJust (Just x) _ = Just x
+firstJust _ m = m
+
+-- | Get the bounding box when we can.
+layerBoundingBox :: Layer p HasBoundingBox r c -> Rectangle () r
+layerBoundingBox = fromJust . tryLayerBoundingBox -- Need to make sure we keep Layer's promises.
+
+-- | Get the layer bounding box if we can. Will succeed when layer 'HasBoundingBox' and fail when it 'LacksBoundingBox'
+tryLayerBoundingBox :: Layer p b r c -> Maybe (Rectangle () r)
+tryLayerBoundingBox NullLayer = Nothing
+tryLayerBoundingBox ConstantLayer {} = Nothing
+tryLayerBoundingBox (GeometryLayer g _ _ _) = Just $ boundingBox g
+tryLayerBoundingBox (FillHolesLayer l p) = let b1 = tryLayerBoundingBox l
+                                               b2 = tryLayerBoundingBox p
+                                               boxes = catMaybes [b1, b2]
+                                            in boundingBoxList <$> NE.nonEmpty boxes
+tryLayerBoundingBox (SampleLayer l) = pmap (fmap round) <$> tryLayerBoundingBox l
+
+-- | Draw a total layer.
+drawTotal :: Layer Total b r c -> Point 2 r -> c
+drawTotal l = fromJust . drawPartially l -- N.B. need to be very careful that this is safe.
+
+-- | Draw a layer as if it were partial.
+drawPartially :: Layer p b r c -> Point 2 r -> Maybe c
+drawPartially NullLayer p = Nothing
+drawPartially (ConstantLayer c) p = Just c
+drawPartially (GeometryLayer geometry width lineColor fill) point =
+  let (r, _) = project point geometry
+      lc = if 2 * r <= width * width then lineColor else Nothing
+      fc = drawPartially fill point
+   in lc `firstJust` fc
+drawPartially (FillHolesLayer t b) point = drawPartially t point `firstJust` drawPartially b point
+drawPartially (SampleLayer l) point = drawPartially l (fmap fromIntegral point)
