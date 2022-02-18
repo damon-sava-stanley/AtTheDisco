@@ -60,7 +60,7 @@ import Data.Geometry
     HasStart (start),
     IntersectionOf,
     IsTransformable (..),
-    LineSegment,
+    LineSegment (LineSegment', ClosedLineSegment),
     NoIntersection,
     NumType,
     Point,
@@ -301,7 +301,8 @@ class Projectable f p r where
     (r, Point 2 r)
 
 instance (Fractional r, Ord r) => Projectable (LineSegment 2) p r where
-  project = sqDistanceToSegArg
+  -- Bodge to work around https://github.com/noinia/hgeometry/issues/170
+  project p (LineSegment' s e) = sqDistanceToSegArg p (ClosedLineSegment s e)
 
 -- Making this a `Projectable` instance would require some type level composition I don't feel like wrestling with.
 projectNonEmptyFoldableLineSegments ::

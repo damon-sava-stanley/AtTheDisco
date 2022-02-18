@@ -38,10 +38,11 @@ import Test.Hspec
     describe,
     it,
     shouldBe,
-    shouldSatisfy,
+    shouldSatisfy, shouldThrow, anyErrorCall
   )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck
+import Control.Exception (evaluate)
 
 -- Test
 
@@ -163,8 +164,12 @@ spec = do
     prop "satisfies semigroup associativity" $ do
       \(a :: FiniteGeometries Int Float) b c -> a <> (b <> c) `shouldBe` (a <> b) <> c
   describe "Misc Tests" $ do
-    context "hsgeometry bug: sqSitanceToSeg" $
-      it "should work with open line segments" $
+    context "hsgeometry bug: sqSitanceToSeg" $ do
+      it "should work with open line segments" $ 
         let ls = OpenLineSegment (Point2 0 0 :+ ()) (Point2 1 0 :+ ())
             p = Point2 2 0
-        in  snd (sqDistanceToSegArg p ls) == Point2 1 0
+        in  evaluate (snd (sqDistanceToSegArg p ls)) `shouldThrow` anyErrorCall
+      it "bodge to above works" $
+        let ls = OpenLineSegment (Point2 0 0 :+ ()) (Point2 1 0 :+ ())
+            p = Point2 2 0
+        in  snd (project p ls) `shouldBe` Point2 1 0
