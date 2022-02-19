@@ -111,7 +111,7 @@ pline ps = addGeometry (pline' ps)
 ls :: (MonadAssembly r c m) => (r, r) -> (r, r) -> m ()
 ls p1 p2 = addGeometry (ls' p1 p2)
 
-randPointInBox :: (Ord r, Random r, MonadAssembly r c m) => (r, r) -> (r, r) -> m (r, r)
+randPointInBox :: (Ord r, Random r, MonadRandom m) => (r, r) -> (r, r) -> m (r, r)
 randPointInBox (x1, y1) (x2, y2) = do
   let (xMin, xMax) = (min x1 x2, max x1 x2)
       (yMin, yMax) = (min y1 y2, max y1 y2)
