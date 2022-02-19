@@ -3,10 +3,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module : AtTheDisco.Geometry
@@ -17,22 +17,24 @@
 -- Stability : experimental
 --
 -- /Layers/ are the abstraction used to organize drawings and style geometry.
-module AtTheDisco.Layer(
-  -- * Layers
-  -- $layers
-  BoundingBox(..),
-  Partiality(..),
-  Layer(..),
-  DumbLayer(..),
-  -- * Drawing
-  -- $drawLayers
-  layerBoundingBox,
-  tryLayerBoundingBox,
-  layerBoundingBoxDumb,
-  drawTotal,
-  drawPartially,
-  drawDumb
-) where
+module AtTheDisco.Layer
+  ( -- * Layers
+    -- $layers
+    BoundingBox (..),
+    Partiality (..),
+    Layer (..),
+    DumbLayer (..),
+
+    -- * Drawing
+    -- $drawLayers
+    layerBoundingBox,
+    tryLayerBoundingBox,
+    layerBoundingBoxDumb,
+    drawTotal,
+    drawPartially,
+    drawDumb,
+  )
+where
 
 import AtTheDisco.Geometry
   ( FiniteGeometries,
@@ -40,15 +42,14 @@ import AtTheDisco.Geometry
     Projectable (project),
   )
 import Data.Geometry (Point)
-import Data.Maybe (fromJust, mapMaybe, catMaybes)
 import Data.Geometry.Box
+import Data.Geometry.Point (PointFunctor (pmap))
 import qualified Data.List.NonEmpty as NE
-import Data.Geometry.Point (PointFunctor(pmap))
+import Data.Maybe (catMaybes, fromJust, mapMaybe)
 
 -- $layers
 --
 -- Definition of 'Layer', the main type.
-
 
 -- data Partiality = Partial | Total
 data BoundingBox = HasBoundingBox | LacksBoundingBox
@@ -75,9 +76,9 @@ type DemotePartiality :: Partiality -> *
 type family DemotePartiality p where
   DemotePartiality Partial = Partiality
 
--- | A 'Layer' is a structured representation of a continuous, partially defined image. We keep track of 
+-- | A 'Layer' is a structured representation of a continuous, partially defined image. We keep track of
 --  whether that image has a bounding box and whether it is everywhere defined or not.
-data Layer :: Partiality -> BoundingBox -> * -> * -> *  where
+data Layer :: Partiality -> BoundingBox -> * -> * -> * where
   -- | A 'NullLayer' is an empty layer.
   NullLayer :: Layer Partial LacksBoundingBox r c
   -- | A 'ConstantLayer' is a total layer that returns a constant layer.
@@ -86,12 +87,14 @@ data Layer :: Partiality -> BoundingBox -> * -> * -> *  where
   GeometryLayer :: (Fractional r, Ord r) => FiniteGeometries () r -> r -> Maybe c -> Layer p b r c -> Layer Partial HasBoundingBox r c
   -- | A 'FillHolesLayer' fills holes in the first layer with holes in the previous layers.
   --   The bounding box will be resized to fit the bounding boxes of the previous.
-  FillHolesLayer :: (Ord r) => Layer p1 b1 r c -> Layer p2 b2 r c -> Layer (AtopPartiality p1 p2)(AtopBoundingBox b1 b2) r c
+  FillHolesLayer :: (Ord r) => Layer p1 b1 r c -> Layer p2 b2 r c -> Layer (AtopPartiality p1 p2) (AtopBoundingBox b1 b2) r c
   -- | A 'SampleLayer' samples the underlying layer.
   SampleLayer :: (RealFrac r, Integral s) => Layer p b r c -> Layer p b s c
+  -- | A 'CropLayer' adds a bounding box around the layer beneath it.
+  CropLayer :: Rectangle () r -> Layer p b r c -> Layer p HasBoundingBox r c
 
 -- | A 'DumbLayer' is a 'Layer' where we have thrown away 'Partiality' and 'BoundingBox' information.
-data DumbLayer r c = forall p b . DumbLayer (Layer p b r c)
+data DumbLayer r c = forall p b. DumbLayer (Layer p b r c)
 
 instance Ord r => Semigroup (DumbLayer r c) where
   (DumbLayer t) <> (DumbLayer b) = DumbLayer (FillHolesLayer t b)
@@ -99,16 +102,17 @@ instance Ord r => Semigroup (DumbLayer r c) where
 instance Ord r => Monoid (DumbLayer r c) where
   mempty = DumbLayer NullLayer
 
-data ShowableLayer = forall p b r c . (Show r, Show c) => ShowableLayer (Layer p b r c)
+data ShowableLayer = forall p b r c. (Show r, Show c) => ShowableLayer (Layer p b r c)
 
-instance (Show r, Show c) => Show (DumbLayer r c) where 
+instance (Show r, Show c) => Show (DumbLayer r c) where
   show (DumbLayer NullLayer) = "NullLayer"
   show (DumbLayer (ConstantLayer c)) = "(ConstantLayer " <> show c <> ")"
-  show (DumbLayer (GeometryLayer geo t l f)) = 
+  show (DumbLayer (GeometryLayer geo t l f)) =
     "(GeometryLayer " <> show geo <> " " <> show t <> " " <> show (DumbLayer f) <> ")"
-  show (DumbLayer (FillHolesLayer t b)) = 
+  show (DumbLayer (FillHolesLayer t b)) =
     "(FillHolesLayer " <> show (DumbLayer t) <> " " <> show (DumbLayer b) <> ")"
-  -- TODO: figure something better out than this. 
+  show (DumbLayer (CropLayer r l)) = "(CropLayer " <> show r <> " " <> show (DumbLayer l) <> ")"
+  -- TODO: figure something better out than this.
   show (DumbLayer (SampleLayer l)) = "(SampleLayer " <> "_" <> ")"
 
 -- $drawLayers
@@ -129,11 +133,13 @@ tryLayerBoundingBox :: Layer p b r c -> Maybe (Rectangle () r)
 tryLayerBoundingBox NullLayer = Nothing
 tryLayerBoundingBox ConstantLayer {} = Nothing
 tryLayerBoundingBox (GeometryLayer g _ _ _) = Just $ boundingBox g
-tryLayerBoundingBox (FillHolesLayer l p) = let b1 = tryLayerBoundingBox l
-                                               b2 = tryLayerBoundingBox p
-                                               boxes = catMaybes [b1, b2]
-                                            in boundingBoxList <$> NE.nonEmpty boxes
+tryLayerBoundingBox (FillHolesLayer l p) =
+  let b1 = tryLayerBoundingBox l
+      b2 = tryLayerBoundingBox p
+      boxes = catMaybes [b1, b2]
+   in boundingBoxList <$> NE.nonEmpty boxes
 tryLayerBoundingBox (SampleLayer l) = pmap (fmap round) <$> tryLayerBoundingBox l
+tryLayerBoundingBox (CropLayer r _) = Just r
 
 -- | Get the bounding box of a 'DumbLayer'. Must return 'Maybe' as we have forgotten whether it has one.
 layerBoundingBoxDumb :: DumbLayer r c -> Maybe (Rectangle () r)
@@ -154,6 +160,7 @@ drawPartially (GeometryLayer geometry width lineColor fill) point =
    in lc `firstJust` fc
 drawPartially (FillHolesLayer t b) point = drawPartially t point `firstJust` drawPartially b point
 drawPartially (SampleLayer l) point = drawPartially l (fmap fromIntegral point)
+drawPartially (CropLayer _ l) point = drawPartially l point
 
 -- | Draw a 'DumbLayer', since we don't know whether it's partial, we have to assume that it is.
 drawDumb :: DumbLayer r c -> Point 2 r -> Maybe c
