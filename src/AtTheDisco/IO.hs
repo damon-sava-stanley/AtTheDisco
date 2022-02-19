@@ -28,3 +28,4 @@ writePictureBMP shape fp = writeBitmap fp image
   where
     (Vector2 w h, gen) = drawPicture shape
     image = generateImage (\x y -> gen (Point2 x y)) w h
+

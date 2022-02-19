@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e1f48abe36ffa81a75ebc55b39505a156509fa5ed65bca7d8d010575f0182a66
+-- hash: 3ad1165a7d482fc907b2651406f3ec9f55069778413a72a18304f623ddedbca8
 
 name:           AtTheDisco
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       AtTheDisco.Builder
+      AtTheDisco.Examples.ScatteredLines
       AtTheDisco.Geometry
       AtTheDisco.IO
       AtTheDisco.Layer
@@ -38,11 +39,15 @@ library
   build-depends:
       Color ==0.3.*
     , JuicyPixels >=3.3
+    , MonadRandom >=0.5
     , base >=4.7 && <5
     , containers >=0.6
+    , data-default >=0.7
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
     , lens >=4.0
+    , mtl >=2.2
+    , random >=1.2
     , vinyl >=0.13
   default-language: Haskell2010
 
@@ -57,11 +62,15 @@ executable AtTheDisco-exe
       AtTheDisco
     , Color ==0.3.*
     , JuicyPixels >=3.3
+    , MonadRandom >=0.5
     , base >=4.7 && <5
     , containers >=0.6
+    , data-default >=0.7
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
     , lens >=4.0
+    , mtl >=2.2
+    , random >=1.2
     , vinyl >=0.13
   default-language: Haskell2010
 
@@ -70,6 +79,7 @@ test-suite AtTheDisco-test
   main-is: Spec.hs
   other-modules:
       Test.AtTheDisco.ArbitraryGeometry
+      Test.AtTheDisco.ArbitraryLayer
       Test.AtTheDisco.GeometrySpec
       Test.AtTheDisco.GeometryTypes
       Test.AtTheDisco.LayerSpec
@@ -81,13 +91,16 @@ test-suite AtTheDisco-test
       AtTheDisco
     , Color ==0.3.*
     , JuicyPixels >=3.3
+    , MonadRandom >=0.5
     , QuickCheck
     , base >=4.7 && <5
     , containers >=0.6
+    , data-default >=0.7
     , hgeometry >=0.13
     , hgeometry-combinatorial >=0.13
     , hspec
     , lens >=4.0
+    , mtl >=2.2
     , random
     , vector-circular
     , vinyl >=0.13
